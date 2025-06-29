@@ -61,10 +61,12 @@ namespace tjulib
             // 微分项的计算：近似为当前误差和上个pid循环误差的差值
             // 自行填写 derivative = ...;
             derivative = 0; 
+            derivative = error-lastError; 
 
             // pid控制器的核心部分，通过pid公式计算速度
             // 自行填写,speed = ...;
             speed = 0;
+            speed=params->kp*error+params->ki*integral+params->kd*derivative;
 
              // 把最高速度限制在maxSpeed范围内
             if (speed < -maxSpeed)

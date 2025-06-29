@@ -52,10 +52,70 @@ namespace tjulib
             }
         }
         
-        void turnToAngle(double angle, T maxSpeed, double maxtime_ms, int fwd = 1)
+        void turnToAngle(double angle, T maxSpeed, double maxtime_ms, int fwd = 1)//角度值传入
         {
             // 仿照moveInches函数的写法，自行实现该函数
             // 目标：输入指定的航向，让机器人能够转到指定的航向
+            // 定义计时器
+            timer mytime;
+            mytime.clear();
+            // 定义变量和初始化参数
+            T finalTunSpeed = 0;
+            T targetAngle = angle;
+            turnControl->resetpid();
+            angle=getWrap360(angle);
+            // 循环判断条件：是否到达指定容差内指定时间以上（这里用循环次数代表时间）
+            // 自行填写（用pidControl类里面的函数）
+            while (1) 
+            {
+                if(turnControl->cnt>100){ //容差时间没找到，目前先以100写着，后续需要修改！！！
+                    break;
+                }
+                // 计算当前误差（还需要往前走多少）
+                T nowangle = imu.heading();//imu缺参条件下返回角度制
+                T Error=angle-nowangle;
+                // 自行填写
+                // 如果当前误差已在容差范围内，则增加cnt计数
+                // 自行填写（用pidPara里面的参数进行判断）
+                if (fabs(Error)<turnControl->params->errorThreshold)
+                {
+                    turnControl->cnt++;
+                }
+                // 如果超过了给定的maxtime，则退出循环
+                if (mytime.time(msec) >= maxtime_ms)
+                {
+                    break;
+                }
+                // 用pid控制器计算速度
+                // 自行填写
+                finalTunSpeed = 0;
+                finalTunSpeed = turnControl->pidCalcu(angle,maxSpeed,nowangle);
+
+                // 控制最小速度，让车辆底盘的电压至少能够克服阻力
+                if (fabs(finalTunSpeed)<turnControl->params->minSpeed) 
+                    {
+                        if(finalTunSpeed >= 0)
+                        {
+                            finalTunSpeed = turnControl->params->minSpeed;
+                        }
+                        else
+                        {
+                            finalTunSpeed = - turnControl->params->minSpeed;
+                        }
+                    }
+                
+                // 如果是向右走，则速度取反
+                if (!fwd)
+                  finalTunSpeed = -finalTunSpeed;
+                
+                // 把计算得到的速度输出
+                VRUN(finalTunSpeed, -finalTunSpeed);//目前不知道哪个参数应该为负，后续如运行异常需要改这里
+                task::sleep(25);
+            }
+            // 完成循环以后把车停下
+            VRUN(0, 0);
+            setStop(vex::brakeType::brake);
+            turnControl->resetpid();
         }
 
         // 直线移动函数,通过pid控制器让机器人向前走指定的距离
@@ -74,12 +134,18 @@ namespace tjulib
             // 自行填写（用pidControl类里面的函数）
             while (1) 
             {
+                if(fwdControl->cnt>100){ //容差时间没找到，目前先以100写着，后续需要修改！！！
+                    break;
+                }
                 // 计算当前误差（还需要往前走多少）
+                T nowposition = (position->LeftBaseDistance + position->RightBaseDistance) / 2;
+                T nowDistant= nowposition-startError;
+                T Error = targetDistant-nowDistant;
                 // 自行填写
                 targetDistant = 0; 
                 // 如果当前误差已在容差范围内，则增加cnt计数
                 // 自行填写（用pidPara里面的参数进行判断）
-                if (1)
+                if (fabs(Error)<fwdControl->params->errorThreshold)
                 {
                     fwdControl->cnt++;
                 }
@@ -91,6 +157,7 @@ namespace tjulib
                 // 用pid控制器计算速度
                 // 自行填写
                 finalFwdSpeed = 0;
+                finalFwdSpeed = fwdControl->pidCalcu(inches,maxSpeed,Error);
 
                 // 控制最小速度，让车辆底盘的电压至少能够克服阻力
                 if (fabs(finalFwdSpeed)<fwdControl->params->minSpeed) 
